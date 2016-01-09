@@ -27,6 +27,63 @@ void add_history(char* unused) {};
 #include <editline/history.h>
 #endif
 
+// Declare a Lisp Value struct
+typedef struct {
+  int type;
+  long num;
+  int err;
+} lval;
+
+// enumeration of possible lval types
+enum { LVAL_NUM, LVAL_ERR };
+
+// enumeration of possible error types
+enum { LERR_DIV_ZERO, LERR_BAD_OP, LERR_BAD_NUM };
+
+// create new number type lval
+lval lval_num(long x) {
+  lval v;
+  v.type = LVAL_NUM;
+  v.num = x;
+  return v;
+}
+
+// create new error type lval
+lval lval_err(int x) {
+  lval v;
+  v.type = LVAL_ERR;
+  v.err = x;
+  return v;
+}
+
+// print an lval
+void lval_print(lval v) {
+  switch (v.type) {
+    // if number, print it
+  case LVAL_NUM: 
+    printf("%li", v.num);
+    break;
+
+    // if error, check type then print
+  case LVAL_ERR:
+    if (v.err == LERR_DIV_ZERO) {
+      printf("Error: Division by zero!");
+    }
+
+    if (v.err == LERR_BAD_OP) {
+      printf("Error: Invalid Operator!");
+    }
+
+    if (v.err == LERR_BAD_NUM) {
+      printf("Error: Invalid number!");
+    }
+    break;
+  }
+}
+
+// print an lval followed by a zero
+void lval_println(lval v) { lval_print(v); putchar("\n"); }
+
 long eval_op(long x, char* op, long y) {
   if (strcmp(op, "+") == 0) { return x + y; }
   if (strcmp(op, "-") == 0) { return x - y; }
