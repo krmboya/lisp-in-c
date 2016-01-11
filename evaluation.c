@@ -81,29 +81,44 @@ void lval_print(lval v) {
   }
 }
 
-// print an lval followed by a zero
+// print an lval followed by a newline
 void lval_println(lval v) { lval_print(v); putchar("\n"); }
 
-long eval_op(long x, char* op, long y) {
-  if (strcmp(op, "+") == 0) { return x + y; }
-  if (strcmp(op, "-") == 0) { return x - y; }
-  if (strcmp(op, "*") == 0) { return x * y; }
-  if (strcmp(op, "/") == 0) { return x / y; }
-  return 0;
+
+// Operate on two lvals
+lval eval_op(lval x, char* op, lval y) {
+
+  // if either value is an error, return it
+  if (x.type == LVAL_ERR) { return x; }
+  if (y.type == LVAL_ERR) { return y; }
+
+  // otherwise, do math on the number values
+  if (strcmp(op, "+") == 0) { return lval_num(x.num + y.num); }
+  if (strcmp(op, "-") == 0) { return lval_num(x.num - y.num); }
+  if (strcmp(op, "*") == 0) { return lval_num(x.num * y.num); }
+  if (strcmp(op, "/") == 0) {
+    // check for division by zero
+    return y.num == 0 ? lval_err(LERR_DIV_ZERO) : lval_num(x.num / y.num);
+  }
+  return lval_err(LERR_BAD_OP);
 }
-      
-long eval(mpc_ast_t* t) {
+
+
+lval eval(mpc_ast_t* t) {
 
   // if tagged as number, return it directly
   if (strstr(t->tag, "number")) {
-    return atoi(t->contents);
+    // check if there's error in conversion
+    error = 0;
+    long x = strtol(t->contents, NULL, 10);
+    return errno != ERANGE ? lval_num(x) : lval_err(LERR_BAD_NUM);
   }
 
   // the operator is always the second child
   char* op = t->children[1]->contents;
 
   // store third child in `x`
-  long x = eval(t->children[2]);
+  lval x = eval(t->children[2]);
 
   // iterate remaining children combining
   int i = 3;
@@ -145,8 +160,8 @@ int main(int arg, char** argv) {
     mpc_result_t r;
     if (mpc_parse("<stdin>", input, Lispy, &r)) {
       // evaluate input and print result
-      long result = eval(r.output);
-      printf("%li\n", result);
+      lval result = eval(r.output);
+      lval_println("%li\n", result);
       mpc_ast_delete(r.output);
     } else {
       // print error
