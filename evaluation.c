@@ -82,7 +82,7 @@ void lval_print(lval v) {
 }
 
 // print an lval followed by a newline
-void lval_println(lval v) { lval_print(v); putchar("\n"); }
+void lval_println(lval v) { lval_print(v); putchar('\n'); }
 
 
 // Operate on two lvals
@@ -109,7 +109,7 @@ lval eval(mpc_ast_t* t) {
   // if tagged as number, return it directly
   if (strstr(t->tag, "number")) {
     // check if there's error in conversion
-    error = 0;
+    errno = 0;
     long x = strtol(t->contents, NULL, 10);
     return errno != ERANGE ? lval_num(x) : lval_err(LERR_BAD_NUM);
   }
@@ -161,7 +161,7 @@ int main(int arg, char** argv) {
     if (mpc_parse("<stdin>", input, Lispy, &r)) {
       // evaluate input and print result
       lval result = eval(r.output);
-      lval_println("%li\n", result);
+      lval_println(result);
       mpc_ast_delete(r.output);
     } else {
       // print error
