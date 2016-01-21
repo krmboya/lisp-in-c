@@ -28,20 +28,19 @@ void add_history(char* unused) {};
 #endif
 
 // Declare a Lisp Value struct
-typedef struct {
+typedef struct lval {
   int type;
   long num;
   char* err; // error strings
   char* sym; // symbols
-  int count;
+  
+  int count; // count of child lvals
   struct lval** cell;  // pointer to list of pointers to lvals
+  
 } lval;
 
 // enumeration of possible lval types
 enum { LVAL_NUM, LVAL_ERR, LVAL_SYM, LVAL_SEXPR };
-
-// enumeration of possible error types
-enum { LERR_DIV_ZERO, LERR_BAD_OP, LERR_BAD_NUM };
 
 // create pointer to a new number lval
 lval* lval_num(long x) {
@@ -76,6 +75,38 @@ lval* lval_sexpr(void) {
   v->count = 0;
   v->cell = NULL;
   return v;
+}
+
+// free lval types
+void lval_del(lval* v) {
+  switch (v->type) {
+    
+    
+  case LVAL_NUM:
+    // do nothing special for lval number type
+    break;
+
+  case LVAL_ERR:
+    free(v->err);
+    break;
+
+  case LVAL_SYM:
+    free(v->sym);
+    break;
+
+  case LVAL_SEXPR:
+    // delete all child elements
+    for (int i = 0; i < v->count; i++) {
+      lval_del(v->cell[i]);
+    }
+
+    // free memory allocated to the pointers
+    free(v->cell);
+    break;
+  }
+
+  // free memory allocated to the lval struct itself
+  free(v);
 }
 
 
