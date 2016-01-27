@@ -154,34 +154,31 @@ lval* lval_add(lval* v, lval* x) {
   return v;
 }
 
-// print an lval
-void lval_print(lval v) {
-  switch (v.type) {
-    // if number, print it
-  case LVAL_NUM: 
-    printf("%li", v.num);
-    break;
+void lval_expr_print(lval* v, char open, char close) {
+  // prints an sexpr's children
+  putchar(open);
+  for (int i = 0; i < v->count; i++) {
+    // print value contained within
+    lval_print(v->cell[i]);
 
-    // if error, check type then print
-  case LVAL_ERR:
-    if (v.err == LERR_DIV_ZERO) {
-      printf("Error: Division by zero!");
+    // Only print trailing space if not last element
+    if (i != (v->count-1)) {
+      putchar(' ');
     }
+  }
+  putchar(close);
+}
 
-    if (v.err == LERR_BAD_OP) {
-      printf("Error: Invalid Operator!");
-    }
-
-    if (v.err == LERR_BAD_NUM) {
-      printf("Error: Invalid number!");
-    }
-    break;
+void lval_print(lval* v) {
+  switch (v->type) {
+  case LVAL_NUM: printf("%li", v->num); break;
+  case LVAL_ERR: printf("Error: %s", v->err); break;
+  case LVAL_SYM: printf("%s", v->sym); break;
+  case LVAL_SEXPR: lval_expr_print(v, '(', ')'); break;
   }
 }
 
-// print an lval followed by a newline
-void lval_println(lval v) { lval_print(v); putchar('\n'); }
-
+void lval_println(lval* v) {lval_print(v); putchar('\n');}
 
 // Operate on two lvals
 lval eval_op(lval x, char* op, lval y) {
