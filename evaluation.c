@@ -110,13 +110,21 @@ void lval_del(lval* v) {
 }
 
 // return lval number (or error)
-lval* lval_read_num(mpc_ast* t) {
+lval* lval_read_num(mpc_ast_t* t) {
   errno = 0;
   long x = strtol(t->contents, NULL, 10);
   return errno != ERANGE ? lval_num(x) : lval_err("invalid number");
 }
 
-lval* lval_read(mpc_ast* t) {
+lval* lval_add(lval* v, lval* x) {
+  // Adds a new element to sexpr pointed by `v'
+  v->count++;
+  v->cell = realloc(v->cell, sizeof(lval*) * v->count);
+  v->cell[v->count-1] = x;
+  return v;
+}
+
+lval* lval_read(mpc_ast_t* t) {
 
   // if symbol or number, return conversion to that type
   if (strstr(t->tag, "number")) {
@@ -146,16 +154,11 @@ lval* lval_read(mpc_ast* t) {
   
 }
 
-lval* lval_add(lval* v, lval* x) {
-  // Adds a new element to sexpr pointed by `v'
-  v->count++;
-  v->cell = realloc(v->cell, sizeof(lval*) * v->count);
-  v->cell[v->count-1] = x;
-  return v;
-}
+void lval_print(lval *v); // forward declaration
 
 void lval_expr_print(lval* v, char open, char close) {
   // prints an sexpr's children
+  
   putchar(open);
   for (int i = 0; i < v->count; i++) {
     // print value contained within
@@ -179,51 +182,6 @@ void lval_print(lval* v) {
 }
 
 void lval_println(lval* v) {lval_print(v); putchar('\n');}
-
-// Operate on two lvals
-lval eval_op(lval x, char* op, lval y) {
-
-  // if either value is an error, return it
-  if (x.type == LVAL_ERR) { return x; }
-  if (y.type == LVAL_ERR) { return y; }
-
-  // otherwise, do math on the number values
-  if (strcmp(op, "+") == 0) { return lval_num(x.num + y.num); }
-  if (strcmp(op, "-") == 0) { return lval_num(x.num - y.num); }
-  if (strcmp(op, "*") == 0) { return lval_num(x.num * y.num); }
-  if (strcmp(op, "/") == 0) {
-    // check for division by zero
-    return y.num == 0 ? lval_err(LERR_DIV_ZERO) : lval_num(x.num / y.num);
-  }
-  return lval_err(LERR_BAD_OP);
-}
-
-
-lval eval(mpc_ast_t* t) {
-
-  // if tagged as number, return it directly
-  if (strstr(t->tag, "number")) {
-    // check if there's error in conversion
-    errno = 0;
-    long x = strtol(t->contents, NULL, 10);
-    return errno != ERANGE ? lval_num(x) : lval_err(LERR_BAD_NUM);
-  }
-
-  // the operator is always the second child
-  char* op = t->children[1]->contents;
-
-  // store third child in `x`
-  lval x = eval(t->children[2]);
-
-  // iterate remaining children combining
-  int i = 3;
-  while (strstr(t->children[i]->tag, "expr")) {
-    x = eval_op(x, op, eval(t->children[i]));
-    i++;
-  }
-
-  return x;
-}
 
 int main(int arg, char** argv) {
 
@@ -257,9 +215,9 @@ int main(int arg, char** argv) {
     mpc_result_t r;
     if (mpc_parse("<stdin>", input, Lispy, &r)) {
       // evaluate input and print result
-      lval result = eval(r.output);
-      lval_println(result);
-      mpc_ast_delete(r.output);
+      lval* x = lval_read(r.output);
+      lval_println(x);
+      lval_del(x);
     } else {
       // print error
       mpc_err_print(r.error);
