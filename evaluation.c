@@ -183,6 +183,44 @@ void lval_print(lval* v) {
 
 void lval_println(lval* v) {lval_print(v); putchar('\n');}
 
+lval* lval_eval_sexpr(lval* v) {
+
+  // evaluate children
+  for (int i = 0; i < v->count; i++) {
+    v->cell[i] = lval_eval(v->cell[i]);
+  }
+
+  // error checking
+  for (int i = 0; i < v->count; i++) {
+    if (v->cell[i]->type == LVAL_ERR) { return lval_take(v, i); }
+  }
+
+  // empty expr
+  if (v->count == 0) { return v; }
+
+  // single expr
+  if (v->count == 1) { return lval_take(v, 0); }
+
+  // ensure first element is symbol
+  lval* f = lval_pop(v, 0);
+  if (f->type != LVAL_SYM) {
+    lval_del(f);
+    lval_del(v);
+    return lval_err("S-expression does not start with symbol!");
+  }
+
+  // call with operator
+  lval* result = builtin_op(v, f->sym);
+  lval_del(f);
+  return result;
+}
+
+lval* lval_eval(lval* v) {
+  // evaluate s-expressions
+  if (v->type == LVAL_SEXPR) { return lval_eval_sexpr(v); }
+  return v;  // others remain the same
+}
+
 int main(int arg, char** argv) {
 
   /* Create parsers */
@@ -214,10 +252,9 @@ int main(int arg, char** argv) {
     // Attempt to parse the input
     mpc_result_t r;
     if (mpc_parse("<stdin>", input, Lispy, &r)) {
-      // evaluate input and print result
-      lval* x = lval_read(r.output);
-      lval_println(x);
-      lval_del(x);
+      lval* x = lval_read(r.output); // return sexpr structure
+      lval_println(x);  // print sexpr structure
+      lval_del(x);  // delete sexpr structure
     } else {
       // print error
       mpc_err_print(r.error);
