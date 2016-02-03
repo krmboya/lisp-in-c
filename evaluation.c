@@ -184,6 +184,7 @@ void lval_print(lval* v) {
 void lval_println(lval* v) {lval_print(v); putchar('\n');}
 
 lval* lval_eval_sexpr(lval* v) {
+  // Returns the evaluation of an sexpr tree
 
   // evaluate children
   for (int i = 0; i < v->count; i++) {
@@ -216,10 +217,39 @@ lval* lval_eval_sexpr(lval* v) {
 }
 
 lval* lval_eval(lval* v) {
-  // evaluate s-expressions
+  // Returns the evaluation of an expression
+  
   if (v->type == LVAL_SEXPR) { return lval_eval_sexpr(v); }
   return v;  // others remain the same
 }
+
+lval* lval_pop(lval* v, int i) {
+  // Pops off item i of sexpr
+
+  lval* x = v->cell[i];
+
+  // shift cell items backwards
+  
+  memmove(&v->cell[i],   // dest
+	  &v->cell[i+1], // src
+	  sizeof(lval*) * (v->count-i-1) ); // size
+
+  // decrease count
+  v->count--;
+
+  // Reallocate memory used
+  v->cell = realloc(v->cell, sizeof(lval*) * v->count);
+  return x;
+}
+
+lval* lval_take(lval* v, int i) {
+  // Retrieves item i of sexpr and deletes the rest
+
+  lval* x = lval_pop(v, i);
+  lval_del(v);
+  return x;
+}
+
 
 int main(int arg, char** argv) {
 
