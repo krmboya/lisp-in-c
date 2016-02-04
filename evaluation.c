@@ -186,23 +186,23 @@ void lval_println(lval* v) {lval_print(v); putchar('\n');}
 lval* lval_eval_sexpr(lval* v) {
   // Returns the evaluation of an sexpr tree
 
-  // evaluate children
+  // evaluate all children (if any)
   for (int i = 0; i < v->count; i++) {
     v->cell[i] = lval_eval(v->cell[i]);
   }
 
-  // error checking
+  // Return any error found
   for (int i = 0; i < v->count; i++) {
     if (v->cell[i]->type == LVAL_ERR) { return lval_take(v, i); }
   }
 
-  // empty expr
+  // `()', return as is
   if (v->count == 0) { return v; }
 
-  // single expr
+  // single expr, return child
   if (v->count == 1) { return lval_take(v, 0); }
 
-  // ensure first element is symbol
+  // > 1 children, ensure first element is symbol or return error
   lval* f = lval_pop(v, 0);
   if (f->type != LVAL_SYM) {
     lval_del(f);
@@ -210,7 +210,7 @@ lval* lval_eval_sexpr(lval* v) {
     return lval_err("S-expression does not start with symbol!");
   }
 
-  // call with operator
+  // Get the result of symbol on other children
   lval* result = builtin_op(v, f->sym);
   lval_del(f);
   return result;
@@ -247,6 +247,47 @@ lval* lval_take(lval* v, int i) {
 
   lval* x = lval_pop(v, i);
   lval_del(v);
+  return x;
+}
+
+lval* builtin_op(lval* a, char* op) {
+  // Returns result of operator on arguments in `a'
+
+  // ensure all arguments are numbers, or return error
+  for (int i=0, i < a->count; i++) {
+    if (a->cell[i]->type != LVAL_NUM ) {
+      lval_del(a);
+      return lval_err("Cannot operate on a non-number!");
+    }
+  }
+  
+  // pop of 1st element
+  lval* x = lval_pop(a, 0);
+
+  // check if is unary negation
+  if ((strcmp(op, "-") == 0) && a->count == 0) {
+    x->num = -x->num;
+  }
+
+  // for each of the remaining args
+  while(a->count > 0) {
+
+    lval* y = lval_pop(a, 0);  // pop next arg
+
+    if (strcmp(op, "+") == 0) { x->num += y->num; }
+    if (strcmp(op, "-") == 0) { x->num -= y->num; }
+    if (strcmp(op, "*") == 0) { x->num *= y->num; }
+    if (strcmp(op, "/") == 0) {
+      if (y->num == 0) {
+	lval_del(x); lval_del(y);
+	x = lval_err("Division by zero!"); break;
+      }
+      x->num /= y->num;
+    }
+    lval_del(y); // finished with arg
+  }
+
+  lval_del(a);
   return x;
 }
 
