@@ -181,7 +181,43 @@ void lval_print(lval* v) {
   }
 }
 
+
 void lval_println(lval* v) {lval_print(v); putchar('\n');}
+
+
+lval* lval_pop(lval* v, int i) {
+  // Pops off item i of sexpr
+
+  lval* x = v->cell[i];
+
+  // shift cell items backwards
+  
+  memmove(&v->cell[i],   // dest
+	  &v->cell[i+1], // src
+	  sizeof(lval*) * (v->count-i-1) ); // size
+
+  // decrease count
+  v->count--;
+
+  // Reallocate memory used
+  v->cell = realloc(v->cell, sizeof(lval*) * v->count);
+  return x;
+}
+
+
+lval* lval_take(lval* v, int i) {
+  // Retrieves item i of sexpr and deletes the rest
+
+  lval* x = lval_pop(v, i);
+  lval_del(v);
+  return x;
+}
+
+
+lval* lval_eval(lval* v);  // declare function
+
+
+lval* builtin_op(lval*, char*);
 
 lval* lval_eval_sexpr(lval* v) {
   // Returns the evaluation of an sexpr tree
@@ -223,38 +259,11 @@ lval* lval_eval(lval* v) {
   return v;  // others remain the same
 }
 
-lval* lval_pop(lval* v, int i) {
-  // Pops off item i of sexpr
-
-  lval* x = v->cell[i];
-
-  // shift cell items backwards
-  
-  memmove(&v->cell[i],   // dest
-	  &v->cell[i+1], // src
-	  sizeof(lval*) * (v->count-i-1) ); // size
-
-  // decrease count
-  v->count--;
-
-  // Reallocate memory used
-  v->cell = realloc(v->cell, sizeof(lval*) * v->count);
-  return x;
-}
-
-lval* lval_take(lval* v, int i) {
-  // Retrieves item i of sexpr and deletes the rest
-
-  lval* x = lval_pop(v, i);
-  lval_del(v);
-  return x;
-}
-
 lval* builtin_op(lval* a, char* op) {
   // Returns result of operator on arguments in `a'
 
   // ensure all arguments are numbers, or return error
-  for (int i=0, i < a->count; i++) {
+  for (int i=0; i < a->count; i++) {
     if (a->cell[i]->type != LVAL_NUM ) {
       lval_del(a);
       return lval_err("Cannot operate on a non-number!");
@@ -269,7 +278,7 @@ lval* builtin_op(lval* a, char* op) {
     x->num = -x->num;
   }
 
-  // for each of the remaining args
+  // for each of the remaining args..
   while(a->count > 0) {
 
     lval* y = lval_pop(a, 0);  // pop next arg
@@ -287,7 +296,7 @@ lval* builtin_op(lval* a, char* op) {
     lval_del(y); // finished with arg
   }
 
-  lval_del(a);
+  lval_del(a);  // finished with arg list
   return x;
 }
 
@@ -323,9 +332,9 @@ int main(int arg, char** argv) {
     // Attempt to parse the input
     mpc_result_t r;
     if (mpc_parse("<stdin>", input, Lispy, &r)) {
-      lval* x = lval_read(r.output); // return sexpr structure
-      lval_println(x);  // print sexpr structure
-      lval_del(x);  // delete sexpr structure
+      lval* x = lval_eval(lval_read(r.output)); // return expr structure
+      lval_println(x);  // print expr structure
+      lval_del(x);  // delete expr structure
     } else {
       // print error
       mpc_err_print(r.error);
