@@ -40,7 +40,7 @@ typedef struct lval {
 } lval;
 
 // enumeration of possible lval types
-enum { LVAL_NUM, LVAL_ERR, LVAL_SYM, LVAL_SEXPR };
+enum { LVAL_NUM, LVAL_ERR, LVAL_SYM, LVAL_SEXPR, LVAL_QEXPR };
 
 // create pointer to a new number lval
 lval* lval_num(long x) {
@@ -77,6 +77,15 @@ lval* lval_sexpr(void) {
   return v;
 }
 
+// create a pointer to a new empty qexpr lval
+lval* lval_qexpr(void) {
+  lval* v = malloc(sizeof(lval));
+  v->type = LVAL_QEXPR;
+  v->count = 0;
+  v->cell = NULL;
+  return v;
+}
+
 // free lval types
 void lval_del(lval* v) {
   switch (v->type) {
@@ -94,6 +103,7 @@ void lval_del(lval* v) {
     free(v->sym);
     break;
 
+  case LVAL_QEXPR:
   case LVAL_SEXPR:
     // delete all child elements
     for (int i = 0; i < v->count; i++) {
@@ -139,6 +149,7 @@ lval* lval_read(mpc_ast_t* t) {
   lval* x = NULL;
   if (strcmp(t->tag, ">") == 0) { x = lval_sexpr(); }
   if (strstr(t->tag, "sexpr"))  { x = lval_sexpr(); }
+  if (strstr(t->tag, "qexpr"))  { x = lval_qexpr(); }
 
   // fill the created list with any valid expressions contained within
   for (int i = 0; i < t->children_num; i++) {
@@ -178,6 +189,7 @@ void lval_print(lval* v) {
   case LVAL_ERR: printf("Error: %s", v->err); break;
   case LVAL_SYM: printf("%s", v->sym); break;
   case LVAL_SEXPR: lval_expr_print(v, '(', ')'); break;
+  case LVAL_QEXPR: lval_expr_print(v, '{', '}'); break;
   }
 }
 
@@ -307,6 +319,7 @@ int main(int arg, char** argv) {
   mpc_parser_t* Number = mpc_new("number");
   mpc_parser_t* Symbol = mpc_new("symbol");
   mpc_parser_t* Sexpr = mpc_new("sexpr");
+  mpc_parser_t* Qexpr = mpc_new("qexpr");
   mpc_parser_t* Expr = mpc_new("expr");
   mpc_parser_t* Lispy = mpc_new("lispy");
 
@@ -314,9 +327,11 @@ int main(int arg, char** argv) {
   mpca_lang(MPCA_LANG_DEFAULT, "number : /-?[0-9]+/ ;                        \
                                 symbol : '+' | '-' | '*' | '/' ;             \
                                 sexpr  : '(' <expr>* ')' ;                   \
-                                expr   : <number> | <symbol> | <sexpr> ;     \
+                                qexpr  : '{' <expr>* '}' ;                   \
+                                expr   : <number> | <symbol> | <sexpr> |     \
+                                         <qexpr>;                            \
                                 lispy  : /^/ <expr>* /$/ ;",
-	    Number, Symbol, Sexpr, Expr, Lispy);
+	    Number, Symbol, Sexpr, Qexpr, Expr, Lispy);
 
   puts("Lispy Version 0.0.0.0.1");
   puts("Press Ctrl+c to Exit\n");
@@ -332,7 +347,10 @@ int main(int arg, char** argv) {
     // Attempt to parse the input
     mpc_result_t r;
     if (mpc_parse("<stdin>", input, Lispy, &r)) {
-      lval* x = lval_eval(lval_read(r.output)); // return expr structure
+      // lval_read - converts into an internal form
+      // lval_eval - evaluates the internal form
+      // lval_print - prints out the internal form
+      lval* x = lval_eval(lval_read(r.output));
       lval_println(x);  // print expr structure
       lval_del(x);  // delete expr structure
     } else {
@@ -346,6 +364,6 @@ int main(int arg, char** argv) {
   }
 
   // undefine and delete parsers
-  mpc_cleanup(5, Number, Symbol, Sexpr, Expr, Lispy);
+  mpc_cleanup(6, Number, Symbol, Sexpr, Qexpr, Expr, Lispy);
   return 0;
 }
