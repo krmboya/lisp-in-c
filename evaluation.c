@@ -27,6 +27,9 @@ void add_history(char* unused) {};
 #include <editline/history.h>
 #endif
 
+#define LASSERT (args, cond, err) \
+  if (!(cond)) { lval_del(args); return lval_err(err); }
+
 // Declare a Lisp Value struct
 typedef struct lval {
   int type;
@@ -223,6 +226,27 @@ lval* lval_take(lval* v, int i) {
   lval* x = lval_pop(v, i);
   lval_del(v);
   return x;
+}
+
+lval* builtin_head(lval* a) {
+  // Given a QEXPR within a SEXPR, returns its head
+
+
+  // check error conditions
+  LASSERT(a, a->count == 1, "Function 'head' needs exactly one argument!");
+
+  LASSERT(a, a->cell[0]->type == LVAL_QEXPR, 
+	  "Function 'head' passed incorrect type!");
+  
+  LASSERT(a, a->cell[0]->count > 1, 
+	  "Function 'head' passed {}!");
+  
+  // take the Q-expr
+  lval* v = lval_take(a, 0);
+
+  // take the first q-expr element and delete rest
+  return lval_take(v, 0);
+  
 }
 
 
