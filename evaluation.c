@@ -231,7 +231,6 @@ lval* lval_take(lval* v, int i) {
 lval* builtin_head(lval* a) {
   // Given a QEXPR within a SEXPR, returns its head
 
-
   // check error conditions
   LASSERT(a, a->count == 1, "Function 'head' needs exactly one argument!");
 
@@ -249,6 +248,46 @@ lval* builtin_head(lval* a) {
   
 }
 
+lval* builtin_tail(lval* a) {
+  // Given a QEXPR within an SEXPR, returns its tail
+
+  // check error conditions
+  LASSERT(a, a->count == 1, "Function 'head' needs exactly one argument!");
+
+  LASSERT(a, a->cell[0]->type == LVAL_QEXPR, 
+	  "Function 'head' passed incorrect type!");
+  
+  LASSERT(a, a->cell[0]->count > 1, 
+	  "Function 'head' passed {}!");
+
+  // take the Q-expr
+  lval* v = lval_take(a, 0);
+  lval_del(lval_pop(v, 0));
+  return v;
+  
+}
+
+lval* builtin_list(lval* a) {
+  // Converts SEXPR a to QEXPR
+  
+  a->type = lVAL_QEXPR;
+  return a;
+  
+}
+
+lval* builtin_eval(lval* a) {
+  // Given a QEXPR within an SEXPR, return its evaluation as an SEXPR
+
+  // check error conditions
+  LASSERT(a, a->count == 1, "Function 'eval' needs exactly one argument!");
+
+  LASSERT(a, a->cell[0]->type == LVAL_QEXPR, 
+	  "Function 'eval' passed incorrect type!");
+
+  lval* x = lval_take(a, 0);
+  x->type = SEXPR;
+  return lval_eval(x);
+}
 
 lval* lval_eval(lval* v);  // declare function
 
@@ -305,8 +344,8 @@ lval* builtin_op(lval* a, char* op) {
       return lval_err("Cannot operate on a non-number!");
     }
   }
-  
-  // pop of 1st element
+
+  // pop off 1st element
   lval* x = lval_pop(a, 0);
 
   // check if is unary negation
