@@ -228,6 +228,19 @@ lval* lval_take(lval* v, int i) {
   return x;
 }
 
+lval* builtin(lval* a, char* func) {
+  if (strcmp("list", func) == 0) { return builtin_list(a); }
+  if (strcmp("head", func) == 0) { return builtin_head(a); }
+  if (strcmp("tail", func) == 0) { return builtin_tail(a); }
+  if (strcmp("join", func) == 0) { return builtin_join(a); }
+  if (strcmp("eval", func) == 0) { return builtin_eval(a); }
+  if (strstr("+-/*", func)) { return builtin_op(a, func); }
+
+  // non matched
+  lval_del(a);
+  return lval_err("Unknown Function!");
+}
+
 lval* builtin_head(lval* a) {
   // Given a QEXPR within a SEXPR, returns its head
 
@@ -287,6 +300,38 @@ lval* builtin_eval(lval* a) {
   lval* x = lval_take(a, 0);
   x->type = SEXPR;
   return lval_eval(x);
+}
+
+lval* builtin_join(lval* a) {
+  // Joins all the qexpr's in sepxr a
+
+  // precondition
+  for (int i = 0; i < a->count; i++) {
+    LASSERT(a, a->cell[i]->type == LVAL_QEXPR,
+	    "Function 'join' passed incorrect type!");
+  }
+
+  // pop off first child
+  lval* x = lval_pop(a, 0);
+
+  // pop off the rest
+  while (a->count) {
+    x = lval_join(x, lval_pop(a, 0));
+  }
+
+  lval_del(a);
+  return x;
+}
+
+lval* lval_join(lval* x, lval* y) {
+  // Combines elements in x and y
+
+  while(y->count) {
+    x = lval_add(x, lval_pop(y, 0));
+  }
+
+  lval_del(y);
+  return x;
 }
 
 lval* lval_eval(lval* v);  // declare function
