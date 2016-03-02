@@ -27,8 +27,10 @@ void add_history(char* unused) {};
 #include <editline/history.h>
 #endif
 
-#define LASSERT (args, cond, err) \
+// custom macros
+#define LASSERT(args, cond, err) \
   if (!(cond)) { lval_del(args); return lval_err(err); }
+
 
 // Declare a Lisp Value struct
 typedef struct lval {
@@ -44,6 +46,11 @@ typedef struct lval {
 
 // enumeration of possible lval types
 enum { LVAL_NUM, LVAL_ERR, LVAL_SYM, LVAL_SEXPR, LVAL_QEXPR };
+
+// forward declarations
+void lval_print(lval* v);
+lval* lval_eval(lval* v);
+lval* builtin_op(lval*, char*);
 
 // create pointer to a new number lval
 lval* lval_num(long x) {
@@ -138,6 +145,7 @@ lval* lval_add(lval* v, lval* x) {
 }
 
 lval* lval_read(mpc_ast_t* t) {
+  // Returns t converted to an lval
 
   // if symbol or number, return conversion to that type
   if (strstr(t->tag, "number")) {
@@ -148,7 +156,7 @@ lval* lval_read(mpc_ast_t* t) {
     return lval_sym(t->contents);
   }
 
-  // if root (>) or sexpr, create empty list
+  // if root (>) or sexpr or qexpr, create empty list
   lval* x = NULL;
   if (strcmp(t->tag, ">") == 0) { x = lval_sexpr(); }
   if (strstr(t->tag, "sexpr"))  { x = lval_sexpr(); }
@@ -168,7 +176,7 @@ lval* lval_read(mpc_ast_t* t) {
   
 }
 
-void lval_print(lval *v); // forward declaration
+
 
 void lval_expr_print(lval* v, char open, char close) {
   // prints an sexpr's children
@@ -228,18 +236,6 @@ lval* lval_take(lval* v, int i) {
   return x;
 }
 
-lval* builtin(lval* a, char* func) {
-  if (strcmp("list", func) == 0) { return builtin_list(a); }
-  if (strcmp("head", func) == 0) { return builtin_head(a); }
-  if (strcmp("tail", func) == 0) { return builtin_tail(a); }
-  if (strcmp("join", func) == 0) { return builtin_join(a); }
-  if (strcmp("eval", func) == 0) { return builtin_eval(a); }
-  if (strstr("+-/*", func)) { return builtin_op(a, func); }
-
-  // non matched
-  lval_del(a);
-  return lval_err("Unknown Function!");
-}
 
 lval* builtin_head(lval* a) {
   // Given a QEXPR within a SEXPR, returns its head
@@ -283,7 +279,7 @@ lval* builtin_tail(lval* a) {
 lval* builtin_list(lval* a) {
   // Converts SEXPR a to QEXPR
   
-  a->type = lVAL_QEXPR;
+  a->type = LVAL_QEXPR;
   return a;
   
 }
@@ -298,8 +294,19 @@ lval* builtin_eval(lval* a) {
 	  "Function 'eval' passed incorrect type!");
 
   lval* x = lval_take(a, 0);
-  x->type = SEXPR;
+  x->type = LVAL_SEXPR;
   return lval_eval(x);
+}
+
+lval* lval_join(lval* x, lval* y) {
+  // Combines elements in x and y
+
+  while(y->count) {
+    x = lval_add(x, lval_pop(y, 0));
+  }
+
+  lval_del(y);
+  return x;
 }
 
 lval* builtin_join(lval* a) {
@@ -323,21 +330,18 @@ lval* builtin_join(lval* a) {
   return x;
 }
 
-lval* lval_join(lval* x, lval* y) {
-  // Combines elements in x and y
+lval* builtin(lval* a, char* func) {
+  if (strcmp("list", func) == 0) { return builtin_list(a); }
+  if (strcmp("head", func) == 0) { return builtin_head(a); }
+  if (strcmp("tail", func) == 0) { return builtin_tail(a); }
+  if (strcmp("join", func) == 0) { return builtin_join(a); }
+  if (strcmp("eval", func) == 0) { return builtin_eval(a); }
+  if (strstr("+-/*", func)) { return builtin_op(a, func); }
 
-  while(y->count) {
-    x = lval_add(x, lval_pop(y, 0));
-  }
-
-  lval_del(y);
-  return x;
+  // non matched
+  lval_del(a);
+  return lval_err("Unknown Function!");
 }
-
-lval* lval_eval(lval* v);  // declare function
-
-
-lval* builtin_op(lval*, char*);
 
 lval* lval_eval_sexpr(lval* v) {
   // Returns the evaluation of an sexpr tree
@@ -366,8 +370,8 @@ lval* lval_eval_sexpr(lval* v) {
     return lval_err("S-expression does not start with symbol!");
   }
 
-  // Get the result of symbol on other children
-  lval* result = builtin_op(v, f->sym);
+  // call builtin with operator
+  lval* result = builtin(v, f->sym);
   lval_del(f);
   return result;
 }
